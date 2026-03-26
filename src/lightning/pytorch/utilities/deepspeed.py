@@ -93,6 +93,7 @@ def convert_zero_checkpoint_to_fp32_state_dict(
     ]
     checkpoint_dir = ds_checkpoint_dir(checkpoint_dir)
     optim_files = get_optim_files(checkpoint_dir)
+    print("optim_files: ", optim_files)
     optim_state = torch.load(optim_files[0], map_location=CPU_DEVICE)
     zero_stage = optim_state["optimizer_state_dict"]["zero_stage"]
     model_file = get_model_state_file(checkpoint_dir, zero_stage)

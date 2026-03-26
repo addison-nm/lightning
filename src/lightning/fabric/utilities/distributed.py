@@ -308,7 +308,7 @@ def _get_default_process_group_backend_for_device(device: torch.device) -> str:
     if device.type == "cuda":
         return "nccl"
     if device.type == "xpu":
-        return "ccl"
+        return "xccl"
     return "gloo"
 
 

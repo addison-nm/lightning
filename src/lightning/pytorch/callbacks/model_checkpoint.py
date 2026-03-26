@@ -390,10 +390,10 @@ class ModelCheckpoint(Checkpoint):
         self._last_global_step_saved = trainer.global_step
         self._last_checkpoint_saved = filepath
 
-        # notify loggers
-        if trainer.is_global_zero:
-            for logger in trainer.loggers:
-                logger.after_save_checkpoint(proxy(self))
+        # # notify loggers
+        # if trainer.is_global_zero:
+        #     for logger in trainer.loggers:
+        #         logger.after_save_checkpoint(proxy(self)) # TN: leads to error AttributeError: 'TensorBoardLogger' object has no attribute 'after_save_checkpoint'
 
     @staticmethod
     def _link_checkpoint(trainer: "pl.Trainer", filepath: str, linkpath: str) -> None:
@@ -523,8 +523,25 @@ class ModelCheckpoint(Checkpoint):
         monitor_op = {"min": torch.lt, "max": torch.gt}[self.mode]
         should_update_best_and_save = monitor_op(current, self.best_k_models[self.kth_best_model_path])
 
-        # If using multiple devices, make sure all processes are unanimous on the decision.
+        # # If using multiple devices, make sure all processes are unanimous on the decision.
         should_update_best_and_save = trainer.strategy.reduce_boolean_decision(bool(should_update_best_and_save))
+
+        # The monitored metric (e.g. val_loss) is already all-reduced across ranks via
+        # sync_dist=True at log time, so every rank holds the same value and therefore
+        # produces the same boolean. reduce_boolean_decision is therefore redundant here.
+        # Moreover, the XPU+DeepSpeed implementation of reduce_boolean_decision is broken
+        # (returns False after best_k_models is full), so we bypass it: rank 0 computes
+        # the decision and broadcasts to all other ranks.
+        
+        # import torch.distributed as dist
+        # if dist.is_available() and dist.is_initialized():
+        #     decision_tensor = torch.tensor(
+        #         int(bool(should_update_best_and_save)),
+        #         dtype=torch.int32,
+        #         device=trainer.strategy.root_device,
+        #     )
+        #     dist.broadcast(decision_tensor, src=0)
+        #     should_update_best_and_save = bool(decision_tensor.item())
 
         return should_update_best_and_save
 

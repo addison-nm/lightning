@@ -346,9 +346,18 @@ class DDPStrategy(ParallelStrategy):
             reduced value, except when the input was not a tensor the output remains is unchanged
 
         """
+        # if isinstance(tensor, Tensor):
+        #     return _sync_ddp_if_available(tensor, group, reduce_op=reduce_op)
+        # return tensor
+
         if isinstance(tensor, Tensor):
-            return _sync_ddp_if_available(tensor, group, reduce_op=reduce_op)
-        return tensor
+            # Use sum instead of mean for XPU compatibility since XPU doesn't support mean reduction (RuntimeError: Cannot use ReduceOp.AVG with XPU)
+            reduced_tensor = _sync_ddp_if_available(tensor, group, reduce_op="sum")
+            # Compute world size for manual averaging
+            world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
+            reduced_tensor = reduced_tensor / world_size
+            return reduced_tensor
+        return tensor  # NOTE: Bug fix by Addison Mar 18, 2026. This return was missing
 
     @classmethod
     @override

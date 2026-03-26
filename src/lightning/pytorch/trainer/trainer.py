@@ -28,6 +28,7 @@ from contextlib import contextmanager
 from datetime import timedelta
 from typing import Any, Dict, Generator, Iterable, List, Optional, Union
 from weakref import proxy
+from pdb import set_trace
 
 import torch
 from torch.optim import Optimizer
@@ -1228,10 +1229,12 @@ class Trainer:
 
         """
         if len(self.loggers) > 0:
-            if not isinstance(self.loggers[0], (TensorBoardLogger, CSVLogger)):
-                dirpath = self.loggers[0].save_dir
-            else:
-                dirpath = self.loggers[0].log_dir
+            # # set_trace()
+            # if not isinstance(self.loggers[0], (TensorBoardLogger, CSVLogger)):
+            #     dirpath = self.loggers[0].save_dir
+            # else:
+            #     dirpath = self.loggers[0].log_dir
+            dirpath = self.loggers[0].log_dir
         else:
             dirpath = self.default_root_dir
 
