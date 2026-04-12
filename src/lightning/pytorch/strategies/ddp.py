@@ -351,13 +351,17 @@ class DDPStrategy(ParallelStrategy):
         # return tensor
 
         if isinstance(tensor, Tensor):
-            # Use sum instead of mean for XPU compatibility since XPU doesn't support mean reduction (RuntimeError: Cannot use ReduceOp.AVG with XPU)
-            reduced_tensor = _sync_ddp_if_available(tensor, group, reduce_op="sum")
-            # Compute world size for manual averaging
-            world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
-            reduced_tensor = reduced_tensor / world_size
-            return reduced_tensor
-        return tensor  # NOTE: Bug fix by Addison Mar 18, 2026. This return was missing
+            # XPU/CCL doesn't support ReduceOp.AVG, so when the caller asks
+            # for mean/avg we manually SUM then divide.  For all other ops
+            # (including SUM) we forward the request unchanged so that
+            # callers like reduce_boolean_decision get a true SUM.
+            if isinstance(reduce_op, str) and reduce_op.lower() in ("mean", "avg"):
+                reduced_tensor = _sync_ddp_if_available(tensor, group, reduce_op="sum")
+                world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
+                reduced_tensor = reduced_tensor / world_size
+                return reduced_tensor
+            return _sync_ddp_if_available(tensor, group, reduce_op=reduce_op)
+        return tensor
 
     @classmethod
     @override
