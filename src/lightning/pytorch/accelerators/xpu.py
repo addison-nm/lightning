@@ -15,7 +15,6 @@ from functools import lru_cache
 from typing import Any, Dict, List
 
 import torch
-from lightning_utilities.core.imports import RequirementCache
 from typing_extensions import override
 
 from lightning.fabric.utilities.types import _DEVICE
@@ -26,8 +25,6 @@ class XPUAccelerator(Accelerator):
     """Support for a Intel Discrete Graphics Cards 'XPU'."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        if not _IPEX_AVAILABLE:
-            raise ModuleNotFoundError(str(_IPEX_AVAILABLE))
         super().__init__(*args, **kwargs)
 
     @staticmethod
@@ -55,13 +52,7 @@ class XPUAccelerator(Accelerator):
     @staticmethod
     @override
     def is_available() -> bool:
-        # Carefully check before trying to import:
-        if _IPEX_AVAILABLE:
-            import intel_extension_for_pytorch as ipex
-
-            # return ipex.xpu.is_available()
-            return torch.xpu.is_available()
-        return False
+        return torch.xpu.is_available()
 
     @override
     def get_device_stats(self, device: _DEVICE) -> Dict[str, Any]:
@@ -86,24 +77,15 @@ class XPUAccelerator(Accelerator):
         )
 
 
-_IPEX_AVAILABLE = RequirementCache("intel_extension_for_pytorch>=1.13", "intel_extension_for_pytorch")
-
-
 @lru_cache(1)
 def num_xpu_devices() -> int:
-    """Returns the number of available CUDA devices.
+    """Returns the number of available XPU devices.
 
-    Unlike :func:`torch.cuda.device_count`, this function does its best not to create a CUDA context for fork support,
+    Unlike :func:`torch.xpu.device_count`, this function does its best not to create an XPU context for fork support,
     if the platform allows it.
 
     """
-    if _IPEX_AVAILABLE:
-        import intel_extension_for_pytorch as ipex
-
-        # return ipex.xpu.device_count()
-        return torch.xpu.device_count()
-    # if not _IPEX_AVAILABLE:
-    return 0
+    return torch.xpu.device_count()
 
 
 def _get_all_visible_xpu_devices() -> List[int]:
